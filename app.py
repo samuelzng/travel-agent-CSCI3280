@@ -58,7 +58,7 @@ async def lifespan(app: FastAPI):
     _BOOT_MARKER.unlink(missing_ok=True)
 
 
-app = FastAPI(title="AI Travel Agent", lifespan=lifespan)
+app = FastAPI(title="ItineraTrace", lifespan=lifespan)
 STATIC_DIR = BASE_DIR / "static"
 AUDIO_DIR = STATIC_DIR / "audio"
 UPLOAD_DIR = STATIC_DIR / "uploads"

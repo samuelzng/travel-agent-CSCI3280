@@ -76,33 +76,17 @@ Built as a solo final project for **CSCI3280 — Introduction to Multimedia**.
 
 ## Architecture
 
-```
-User (Voice / Text / Image)
-        │
-        ▼
-   ┌─────────┐
-   │ Whisper  │  STT        ──── /transcribe
-   │ Upload   │  Image      ──── /upload-image
-   └────┬─────┘
-        ▼
-   ┌──────────────────────────────────┐
-   │  Gemini 3.1 Flash Lite (ReAct)  │
-   │  up to 15 iterations            │
-   │                                  │
-   │  ┌─ search_places  → Tavily     │
-   │  ├─ get_weather    → Open-Meteo │
-   │  ├─ get_directions → OSRM       │
-   │  └─ save_memory    → JSON store │
-   └────────────┬─────────────────────┘
-                ▼
-   ┌─────────────────────┐
-   │  Renderer + TTS     │
-   │  JSON → Timeline UI │
-   │  Summary → Audio    │
-   └────────┬────────────┘
-            ▼
-        Browser (FastAPI + SSE)
-```
+<p align="center">
+  <img src="assets/architecture.png" alt="System Architecture" width="100%">
+</p>
+
+The system is organized into five layers:
+
+1. **Multimodal User Interface** — accepts voice (microphone), text (keyboard), and image (camera/upload) input
+2. **Input Processing Module** — Whisper STT transcribes audio (`/transcribe`); image handler stores uploads (`/upload-image`)
+3. **Core Agent Intelligence Layer** — Gemini 3.1 Flash Lite drives a ReAct loop (up to 15 iterations) that reasons, calls tools, and observes results; a memory manager persists user preferences across trips
+4. **Knowledge Augmentation & Tool Network** — external APIs provide real data: Tavily (`search_places`), Open-Meteo (`get_weather`), OSRM (`get_directions`)
+5. **Multimodal Response Generation & Rendering** — TTS engine narrates a summary; timeline UI renderer converts JSON into visual itinerary components; delivered to the browser via FastAPI + SSE
 
 ---
 
