@@ -19,7 +19,7 @@
 
 ## Overview
 
-**ItineraTrace** is an agentic AI travel planner that goes beyond simple chatbot Q&A. It autonomously searches for real places, checks live weather, computes walking routes, and assembles a structured day-by-day itinerary — all through an iterative ReAct reasoning loop.
+**ItineraTrace** is an agentic AI travel planner that goes beyond simple chatbot Q&A. It autonomously searches for **real places**, checks **live weather**, computes **walking routes**, and assembles a structured day-by-day itinerary — all through an iterative ReAct reasoning loop.
 
 It accepts **voice**, **text**, and **image** input, responds with **speech** and a rich **visual itinerary**, and **remembers** your preferences across trips.
 
@@ -39,7 +39,7 @@ Built as a solo final project for **CSCI3280 — Introduction to Multimedia**.
 
 ### Agentic Planning (ReAct Loop)
 
-- Gemini LLM reasons step-by-step, calling tools iteratively (up to 15 rounds)
+- Gemini LLM reasons step-by-step, calling tools iteratively 
 - **Zero hallucination** — every place comes from a live Tavily web search
 - **Weather-aware** — fetches 16-day forecasts; suggests indoor venues on rainy days
 - **Realistic routing** — computes walking distances between stops via OSRM
