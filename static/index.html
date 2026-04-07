@@ -7,7 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M2 14L28 2 18 30 14 18z' fill='%234285F4'/><path d='M28 2L14 18l4 12z' fill='%232563EB'/></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=20" />
+  <link rel="stylesheet" href="/static/style.css?v=21" />
 </head>
 <body>
 
@@ -107,11 +107,22 @@
       </div>
     </section>
 
+    <!-- Split resize handle -->
+    <div class="split-handle" id="split-handle" hidden>
+      <div class="split-handle-grip"></div>
+    </div>
+
     <!-- Itinerary Panel -->
     <section class="panel panel--hidden" id="panel-itinerary">
       <header class="panel-header">
-        <h1>Your Itinerary</h1>
+        <div style="display:flex;align-items:center;gap:12px">
+          <h1 style="flex:1">Your Itinerary</h1>
+          <button class="btn-collapse-split" id="btn-collapse-split" title="Close split view">&times;</button>
+        </div>
         <p class="subtitle" id="itinerary-subtitle">No itinerary yet — ask me to plan a trip!</p>
+        <div class="export-actions" id="export-actions" hidden>
+          <button class="btn-export" id="btn-print-itinerary" title="Print / Save as PDF">🖨 Print</button>
+        </div>
       </header>
       <div class="itinerary-container" id="itinerary-container">
         <div class="empty-state">
@@ -159,6 +170,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=20"></script>
+  <script src="/static/app.js?v=21"></script>
 </body>
 </html>

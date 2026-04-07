@@ -43,6 +43,8 @@ const panels            = { chat: document.getElementById('panel-chat'), itinera
 const btnNewTrip        = document.getElementById('btn-new-trip');
 const btnDeleteTrip     = document.getElementById('btn-delete-trip');
 const tripListEl        = document.getElementById('trip-list');
+const exportActions     = document.getElementById('export-actions');
+const btnPrintItin      = document.getElementById('btn-print-itinerary');
 
 /* ══════════════════════════════════════════════════════════════════════════════
    RENDERING — all HTML is generated here from structured data
@@ -54,8 +56,18 @@ function renderAllMessages() {
   const trip = getActiveTrip();
   if (!trip) return;
   const msgs = trip.messages;
+
+  // Show welcome hero if only the welcome message exists
+  if (msgs.length === 1 && msgs[0].role === 'agent'
+      && typeof msgs[0].content === 'object' && msgs[0].content.type === 'welcome') {
+    messagesEl.appendChild(buildWelcomeHero());
+    return;
+  }
+
   for (let i = 0; i < msgs.length; i++) {
     const msg = msgs[i];
+    // Skip welcome messages in normal chat view
+    if (msg.role === 'agent' && typeof msg.content === 'object' && msg.content.type === 'welcome') continue;
     const isLast = (i === msgs.length - 1);
     if (msg.role === 'user') {
       messagesEl.appendChild(buildUserBubble(msg.content));
@@ -237,7 +249,7 @@ function buildAgentBubble(content, isLast) {
     bubbleHtml = `
       <p>Your <strong>${nDays}-day itinerary for ${dest}</strong> is ready!</p>
       ${dates ? `<p style="color:var(--text-3);font-size:13px">${esc(dates)}</p>` : ''}
-      <p style="margin-top:10px"><button class="btn-view-itinerary" onclick="switchPanel('itinerary')">View Itinerary →</button></p>`;
+      <p style="margin-top:10px"><button class="btn-view-itinerary" onclick="enterSplitView()">View Itinerary →</button></p>`;
   } else {
     const text = _textOf(content);
     bubbleHtml = esc(text).split('\n').filter(Boolean).map(line =>
@@ -359,6 +371,35 @@ function buildAgentBubble(content, isLast) {
   return div;
 }
 
+/* ── Welcome Hero ─────────────────────────────────────────────────────────── */
+function buildWelcomeHero() {
+  const chips = [
+    { icon: '🗼', msg: 'Plan a 2-day trip to Tokyo' },
+    { icon: '🌤', msg: "What's the weather in Paris this weekend?" },
+    { icon: '🏛', msg: 'Find attractions in Bangkok' },
+    { icon: '🍝', msg: 'Suggest restaurants in Rome' },
+  ];
+  const div = document.createElement('div');
+  div.className = 'welcome-hero';
+  div.innerHTML = `
+    <div class="welcome-hero-glow">✈</div>
+    <h2 class="welcome-hero-title">Where to next?</h2>
+    <p class="welcome-hero-subtitle">Tell me your destination and I'll plan the perfect trip — with real places, live weather, and walking routes.</p>
+    <div class="welcome-hero-chips">
+      ${chips.map(c => `<button class="welcome-chip" data-msg="${esc(c.msg)}">${c.icon} ${esc(c.msg)}</button>`).join('')}
+    </div>
+    <div class="welcome-hero-tips">
+      <span>🌗 Dark / light mode</span>
+      <span>🎙 Click mic to speak</span>
+      <span>📷 Paste or upload images</span>
+    </div>`;
+
+  div.querySelectorAll('.welcome-chip').forEach(btn => {
+    btn.addEventListener('click', () => sendMessage(btn.dataset.msg));
+  });
+  return div;
+}
+
 /* ── Itinerary rendering ───────────────────────────────────────────────────── */
 function renderItinerary() {
   const trip = getActiveTrip();
@@ -370,6 +411,7 @@ function renderItinerary() {
         <p>Your itinerary will appear here once you ask me to plan a trip.</p>
       </div>`;
     itinerarySubtitle.textContent = DEFAULT_SUBTITLE;
+    if (exportActions) exportActions.hidden = true;
     return;
   }
 
@@ -396,6 +438,7 @@ function renderItinerary() {
   }).join('\n');
 
   itineraryEl.innerHTML = allHtml;
+  if (exportActions) exportActions.hidden = false;
 }
 
 function renderDay(day) {
@@ -613,6 +656,10 @@ async function sendMessage(text) {
   if (!trip) return;
   const userContent = imageUrl ? { text: msg, image_url: imageUrl } : msg;
   trip.messages.push({ role: 'user', content: userContent });
+  // Clear welcome hero if present
+  if (messagesEl.querySelector('.welcome-hero')) {
+    messagesEl.innerHTML = '';
+  }
   messagesEl.appendChild(buildUserBubble(userContent));
   document.querySelectorAll('.inline-chips').forEach(el => el.remove());  // clear chips
   scrollToBottom();
@@ -720,6 +767,8 @@ function showItineraryBadge() {
    ══════════════════════════════════════════════════════════════════════════════ */
 
 function switchPanel(target) {
+  // Exit split mode when using nav tabs
+  exitSplitView();
   navItems.forEach(b => b.classList.remove('active'));
   document.querySelector(`.nav-item[data-panel="${target}"]`)?.classList.add('active');
   mobileNavItems.forEach(b => b.classList.remove('active'));
@@ -731,8 +780,78 @@ function switchPanel(target) {
   }
 }
 
+const splitHandle = document.getElementById('split-handle');
+
+function enterSplitView() {
+  // On small screens, fall back to full panel switch
+  if (window.innerWidth < 900) {
+    switchPanel('itinerary');
+    return;
+  }
+  const mainEl = document.querySelector('.main');
+  mainEl.classList.add('main--split');
+  // Ensure both panels are visible
+  panels.chat.classList.remove('panel--hidden');
+  panels.itinerary.classList.remove('panel--hidden');
+  // Show resize handle
+  if (splitHandle) splitHandle.hidden = false;
+  // Reset any custom widths from previous drag
+  panels.chat.style.flex = '';
+  panels.itinerary.style.flex = '';
+  itineraryBadge.hidden = true;
+  if (mobileBadge) mobileBadge.hidden = true;
+  // Scroll itinerary to top
+  document.getElementById('itinerary-container')?.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function exitSplitView() {
+  document.querySelector('.main').classList.remove('main--split');
+  if (splitHandle) splitHandle.hidden = true;
+  // Reset custom widths
+  panels.chat.style.flex = '';
+  panels.itinerary.style.flex = '';
+}
+
+/* ── Split handle drag ────────────────────────────────────────────────────── */
+if (splitHandle) {
+  let isDragging = false;
+
+  splitHandle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    isDragging = true;
+    splitHandle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const mainEl = document.querySelector('.main');
+    const mainRect = mainEl.getBoundingClientRect();
+    const offset = e.clientX - mainRect.left;
+    const totalWidth = mainRect.width;
+    // Clamp: chat min 30%, max 80%
+    const chatRatio = Math.max(0.3, Math.min(0.8, offset / totalWidth));
+    const itinRatio = 1 - chatRatio;
+    panels.chat.style.flex = `${chatRatio}`;
+    panels.itinerary.style.flex = `${itinRatio}`;
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!isDragging) return;
+    isDragging = false;
+    splitHandle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+}
+
 navItems.forEach(btn => btn.addEventListener('click', () => switchPanel(btn.dataset.panel)));
 mobileNavItems.forEach(btn => btn.addEventListener('click', () => switchPanel(btn.dataset.panel)));
+
+// Collapse button closes split view, returns to chat
+const btnCollapseSplit = document.getElementById('btn-collapse-split');
+if (btnCollapseSplit) btnCollapseSplit.addEventListener('click', () => switchPanel('chat'));
 if (mobileNewBtn) mobileNewBtn.addEventListener('click', () => createTrip());
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -982,6 +1101,16 @@ memoryAddBtn.addEventListener('click', addMemoryManual);
 memoryAddInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); addMemoryManual(); }
 });
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   EXPORT ITINERARY
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+function printItinerary() {
+  window.print();
+}
+
+if (btnPrintItin) btnPrintItin.addEventListener('click', printItinerary);
 
 /* ══════════════════════════════════════════════════════════════════════════════
    IMAGE UPLOAD & PASTE
