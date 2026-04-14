@@ -9,7 +9,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.10+-blue?logo=python&logoColor=white" alt="Python">
-  <img src="https://img.shields.io/badge/LLM-Gemini%203.1%20Flash%20Lite-4285F4?logo=google&logoColor=white" alt="Gemini">
+  <img src="https://img.shields.io/badge/LLM-Gemini%203%20Flash-4285F4?logo=google&logoColor=white" alt="Gemini">
   <img src="https://img.shields.io/badge/STT-Whisper-74aa9c?logo=openai&logoColor=white" alt="Whisper">
   <img src="https://img.shields.io/badge/TTS-Edge--TTS-0078D4?logo=microsoft&logoColor=white" alt="Edge-TTS">
   <img src="https://img.shields.io/badge/framework-FastAPI-009688?logo=fastapi&logoColor=white" alt="FastAPI">
@@ -39,10 +39,11 @@ Built as a solo final project for **CSCI3280 — Introduction to Multimedia**.
 
 ### Agentic Planning (ReAct Loop)
 
-- Gemini LLM reasons step-by-step, calling tools iteratively 
+- Gemini 3 Flash reasons step-by-step, calling tools iteratively (up to 15 iterations)
 - **Zero hallucination** — every place comes from a live Tavily web search
-- **Weather-aware** — fetches 16-day forecasts; suggests indoor venues on rainy days
-- **Realistic routing** — computes walking distances between stops via OSRM
+- **Weather-aware** — fetches 16-day forecasts; suggests indoor venues on rainy days, adjusts schedule for extreme heat
+- **Smart transport estimation** — agent estimates distances and picks realistic modes (walk / subway / bus / taxi) based on city knowledge
+- **In-memory tool caching** — deduplicates API calls within a session (30 min TTL for weather, 6 hr for places)
 - Structured JSON itinerary with times, durations, transport, and photos
 
 ### Dynamic Memory
@@ -134,8 +135,8 @@ The system is organized into five layers:
 
 1. **Multimodal User Interface** — accepts voice (microphone), text (keyboard), and image (camera/upload) input
 2. **Input Processing Module** — Whisper STT transcribes audio (`/transcribe`); image handler stores uploads (`/upload-image`)
-3. **Core Agent Intelligence Layer** — Gemini 3.1 Flash Lite drives a ReAct loop (up to 15 iterations) that reasons, calls tools, and observes results; a memory manager persists user preferences across trips
-4. **Knowledge Augmentation & Tool Network** — external APIs provide real data: Tavily (`search_places`), Open-Meteo (`get_weather`), OSRM (`get_directions`)
+3. **Core Agent Intelligence Layer** — Gemini 3 Flash drives a ReAct loop (up to 15 iterations) that reasons, calls tools, and observes results; a memory manager persists user preferences across trips; in-memory TTL cache deduplicates repeated tool calls
+4. **Knowledge Augmentation & Tool Network** — external APIs provide real data: Tavily (`search_places`), Open-Meteo (`get_weather`); transport is estimated by the LLM based on city knowledge rather than external routing APIs
 5. **Multimodal Response Generation & Rendering** — TTS engine narrates a summary; timeline UI renderer converts JSON into visual itinerary components; delivered to the browser via FastAPI + SSE
 
 ---
@@ -144,14 +145,30 @@ The system is organized into five layers:
 
 | Component | Technology | Cost |
 |-----------|-----------|------|
-| **LLM** | Gemini 3.1 Flash Lite Preview | Free tier |
+| **LLM** | Gemini 3 Flash Preview (`gemini-3-flash-preview`) | Free tier |
 | **STT** | OpenAI Whisper (base, local) | Free |
 | **TTS** | Edge-TTS | Free |
 | **Places** | Tavily API (with images) | Free tier (1k req/mo) |
 | **Weather** | Open-Meteo | Free |
-| **Routing** | OSRM + Nominatim | Free |
+| **Transport** | LLM-estimated (no external routing API) | Free |
 | **Backend** | FastAPI + Uvicorn | — |
 | **Frontend** | Vanilla HTML / CSS / JS | — |
+| **Caching** | In-memory TTL cache (per-tool) | — |
+
+---
+
+## Key Design Choices
+
+| Decision | Choice | Why |
+|----------|--------|-----|
+| **LLM** | Gemini 3 Flash (upgraded from 3.1 Flash Lite) | Better reasoning, tool-calling reliability, and vision quality |
+| **Places search** | Tavily API (not Google Places) | Free image URLs via `include_images=True`; generous free tier |
+| **Transport** | LLM estimation (removed OSRM/Nominatim) | Eliminates external API dependency and latency; the LLM picks realistic modes (walk/subway/bus/taxi) based on distance heuristics |
+| **Tool caching** | In-memory TTL cache per tool | Prevents redundant API calls when the LLM re-requests the same data within a session |
+| **Memory** | Freeform `save_memory` tool (not rigid preference forms) | Agent captures preferences naturally from conversation ("I'm vegetarian", "traveling with kids") |
+| **Frontend** | FastAPI + vanilla JS (not Gradio) | Full control over UI, SSE streaming, and responsive layout |
+| **Weather** | Open-Meteo (not OpenWeatherMap) | Free, no API key, 16-day forecast with planning hints |
+| **TTS** | Edge-TTS (not Google/AWS TTS) | Zero-config, free, many natural voices, async-friendly |
 
 ---
 
@@ -240,11 +257,11 @@ travel-agent/
 1. **Input** — User types, speaks, or uploads an image
 2. **STT** — Whisper transcribes audio in a background thread
 3. **Vision** — If an image is attached, Gemini identifies the landmark
-4. **Agent loop** — Gemini iterates through tool calls:
+4. **Agent loop** — Gemini 3 Flash iterates through tool calls (up to 15 iterations, cached to avoid duplicate API calls):
    - `search_places` for attractions, restaurants, cafes
    - `get_weather` for the travel dates
-   - `get_batch_directions` for all route legs
    - `save_memory` when user reveals preferences
+   - Transport distances/modes are estimated by the LLM based on city knowledge
 5. **Itinerary** — Agent emits structured JSON with times, photos, transport
 6. **Rendering** — Frontend renders a visual timeline with activity cards
 7. **TTS** — Edge-TTS narrates a human-friendly summary
@@ -256,8 +273,8 @@ travel-agent/
 
 - Whisper `base` may struggle with heavy accents or noisy environments
 - Tavily image URLs are third-party and may occasionally break (hidden via `onerror`)
-- OSRM routing has limited coverage in very rural areas
-- Gemini Flash Lite free tier: 500 requests/day
+- Transport estimates rely on LLM city knowledge — may be approximate for less-known areas
+- Gemini 3 Flash free tier: limited daily requests
 - Very obscure landmarks may not be recognized by Gemini Vision
 
 ---
