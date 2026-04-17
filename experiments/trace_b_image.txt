@@ -1,0 +1,21 @@
+[harness] mode=image path=static/uploads/67b42384-ac76-4244-999f-8e78b67bf72d.png mime=image/png query='I want to visit this place. Plan a one-day trip around it.'
+[TRACE] === Iteration 1 ===
+Gemini transient error (attempt 1/3): 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+Gemini transient error (attempt 2/3): 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+[TRACE] function_calls: 4
+[TRACE]   call: search_places({'location': 'Kunming', 'query': 'Daguan Park Kunming'})
+[TRACE]   call: search_places({'query': 'top attractions in Kunming', 'location': 'Kunming'})
+[TRACE]   call: search_places({'location': 'Kunming', 'query': 'popular restaurants in Kunming'})
+[TRACE]   call: get_weather({'location': 'Kunming', 'end_date': '2026-04-17', 'start_date': '2026-04-17'})
+[TRACE]   result: search_places wall=6.3615s hit=False inner_dt=6.3633s
+[TRACE]   result: search_places wall=0.0000s hit=False inner_dt=3.6302s
+[TRACE]   result: search_places wall=0.0000s hit=False inner_dt=4.4840s
+[TRACE]   result: get_weather wall=0.0000s hit=False inner_dt=2.5233s
+[TRACE] === Iteration 2 ===
+[TRACE] function_calls: 1
+[TRACE]   call: search_places({'query': 'best Crossing the Bridge Noodles restaurant Kunming', 'location': 'Kunming'})
+[TRACE]   result: search_places wall=4.4825s hit=False inner_dt=4.4826s
+[TRACE] === Iteration 3 ===
+Gemini transient error (attempt 1/3): 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+[TRACE] → final response
+[harness] itinerary=yes text[:200]='The place in the image you shared is **Daguan Park** (also known as Grand View Park) in **Kunming**, Yunnan Province, China. This scenic park is famous for the Daguan Pavilion and its intricate wooden'

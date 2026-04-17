@@ -1,0 +1,16 @@
+[harness] mode=text query='I want a 2-day itinerary in Kyoto, temples and ramen, medium pace.'
+[TRACE] === Iteration 1 ===
+[TRACE] function_calls: 5
+[TRACE]   call: search_places({'location': 'Kyoto', 'query': 'best temples in Kyoto'})
+[TRACE]   call: search_places({'location': 'Kyoto', 'query': 'best ramen restaurants Kyoto'})
+[TRACE]   call: search_places({'query': 'popular restaurants Kyoto', 'location': 'Kyoto'})
+[TRACE]   call: get_weather({'start_date': '2026-04-17', 'location': 'Kyoto', 'end_date': '2026-04-18'})
+[TRACE]   call: save_memory({'text': 'Loves ramen and temples. prefers a medium pace.'})
+[TRACE]   result: search_places wall=5.4469s hit=False inner_dt=5.4490s
+[TRACE]   result: search_places wall=1.3112s hit=False inner_dt=6.7602s
+[TRACE]   result: search_places wall=0.0000s hit=False inner_dt=4.0966s
+[TRACE]   result: get_weather wall=0.0000s hit=False inner_dt=2.6159s
+[TRACE]   result: save_memory wall=0.0000s ?
+[TRACE] === Iteration 2 ===
+[TRACE] → final response
+[harness] itinerary=yes text[:200]='{   "destination": "Kyoto",   "dates": {     "start": "2026-04-17",     "end": "2026-04-18"   },   "weather_summary": "Expect mild temperatures with overcast skies on Friday and a light drizzle on Sat'

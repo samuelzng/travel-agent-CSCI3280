@@ -3,6 +3,7 @@
 import concurrent.futures
 import json
 import logging
+import os
 import threading
 import time as _time
 from collections.abc import Callable
@@ -14,6 +15,19 @@ from tools import TOOL_REGISTRY
 from user_memory import load_preferences, format_preferences_for_prompt, format_memories_for_prompt
 
 logger = logging.getLogger(__name__)
+
+_TRACE = os.getenv("TRACE") == "1"
+
+
+def _trace(msg: str) -> None:
+    """TRACE=1 gated print — plain stdout so bench scripts can capture it."""
+    if _TRACE:
+        print(f"[TRACE] {msg}", flush=True)
+
+
+def _truncate(v, limit: int = 80) -> str:
+    s = str(v)
+    return s if len(s) <= limit else s[:limit] + "…"
 
 # MODEL = "gemini-3.1-flash-lite-preview"
 
@@ -421,6 +435,7 @@ def run_agent(
             raise AgentCancelled()
 
         logger.debug("Agent iteration %d", i + 1)
+        _trace(f"=== Iteration {i + 1} ===")
 
         # Progress for LLM thinking rounds
         if progress_callback and i > 0:
@@ -476,6 +491,7 @@ def run_agent(
         function_calls = [p for p in parts if p.function_call]
 
         if not function_calls:
+            _trace("→ final response")
             # No tool calls — final text response
             if progress_callback and i > 0:
                 progress_callback("Building your itinerary...")
@@ -492,15 +508,20 @@ def run_agent(
         # Execute all function calls in parallel for speed
         function_response_parts = []
 
+        _trace(f"function_calls: {len(function_calls)}")
         # Send progress for all tools
         for part in function_calls:
             fc = part.function_call
             logger.info("Tool call: %s(%s)", fc.name, dict(fc.args))
+            if _TRACE:
+                tr_args = {k: _truncate(v, 80) for k, v in dict(fc.args).items()}
+                _trace(f"  call: {fc.name}({tr_args})")
             if progress_callback:
                 msg_fn = _TOOL_PROGRESS.get(fc.name, lambda a: f"Running {fc.name}")
                 progress_callback(msg_fn(dict(fc.args)))
 
         # Submit all tool calls at once (use list to handle duplicate tool names)
+        _call_starts: list[float] = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(function_calls)) as executor:
             futures = []
             for part in function_calls:
@@ -510,9 +531,11 @@ def run_agent(
                     futures.append(None)
                 else:
                     futures.append(executor.submit(tool_fn, **dict(fc.args)))
+                    _call_starts.append(_time.perf_counter())
 
             for part, future in zip(function_calls, futures):
                 fc = part.function_call
+                t0 = _time.perf_counter()
                 if future is None:
                     result = {"error": f"Unknown tool: {fc.name}"}
                 else:
@@ -524,6 +547,20 @@ def run_agent(
                     except Exception as e:
                         logger.error("Tool %s failed: %s", fc.name, e)
                         result = {"error": str(e)}
+                wall_dt = _time.perf_counter() - t0
+                if _TRACE:
+                    # Look up the matching event from the cache wrapper (already recorded)
+                    hit_info = "?"
+                    try:
+                        from tools import TRACE_EVENTS as _EVS
+                        # Scan from the end for the most recent event matching this fn
+                        for ev in reversed(_EVS):
+                            if ev["fn"] == fc.name and ev["kwargs"] == dict(fc.args):
+                                hit_info = f"hit={ev['hit']} inner_dt={ev['duration']:.4f}s"
+                                break
+                    except Exception:
+                        pass
+                    _trace(f"  result: {fc.name} wall={wall_dt:.4f}s {hit_info}")
 
                 # Collect place images for post-processing
                 if fc.name == "search_places" and isinstance(result, dict):

@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+import os
 import time
 import unicodedata
 
@@ -11,6 +12,11 @@ from tools.weather import get_weather
 from user_memory import save_preferences, save_memory
 
 logger = logging.getLogger(__name__)
+
+_TRACE = os.getenv("TRACE") == "1"
+# Optional list that the bench/trace harness can populate to capture per-call timings.
+# Each entry: {"fn": str, "kwargs": dict, "hit": bool, "duration": float}
+TRACE_EVENTS: list[dict] = []
 
 # ── Simple in-memory TTL cache ────────────────────────────────────────────────
 # Weather and places data don't change within a session.  Cache avoids
@@ -48,12 +54,22 @@ def _cached(fn, fn_name: str):
     def wrapper(**kwargs):
         key = _cache_key(fn_name, kwargs)
         now = time.time()
+        t0 = time.perf_counter()
         if key in _cache:
             expires, result = _cache[key]
             if now < expires:
-                logger.info("Cache hit: %s(%s)", fn_name, kwargs)
+                dt = time.perf_counter() - t0
+                logger.info("Cache hit: %s(%s) in %.4fs", fn_name, kwargs, dt)
+                if _TRACE:
+                    TRACE_EVENTS.append({"fn": fn_name, "kwargs": dict(kwargs),
+                                         "hit": True, "duration": dt})
                 return result
         result = fn(**kwargs)
+        dt = time.perf_counter() - t0
+        if _TRACE:
+            TRACE_EVENTS.append({"fn": fn_name, "kwargs": dict(kwargs),
+                                 "hit": False, "duration": dt})
+            logger.info("Cache miss: %s(%s) in %.4fs", fn_name, kwargs, dt)
         # Only cache successful results (no error key)
         if isinstance(result, dict) and "error" not in result:
             _cache[key] = (now + ttl, result)
@@ -68,4 +84,10 @@ TOOL_REGISTRY = {
     "save_memory": save_memory,
 }
 
-__all__ = ["search_places", "get_weather", "TOOL_REGISTRY"]
+
+def _clear_cache() -> None:
+    """Empty the in-memory TTL cache (used by bench/tests)."""
+    _cache.clear()
+
+
+__all__ = ["search_places", "get_weather", "TOOL_REGISTRY", "TRACE_EVENTS", "_clear_cache"]
